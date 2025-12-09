@@ -18,6 +18,7 @@ import scanpy as sc
 import json
 import scipy.sparse
 import pickle
+from scipy import sparse
 
 
 def read_array(filename):
@@ -167,7 +168,13 @@ def main(args):
 
     kmeans = KMeans(n_clusters=num_clusters, random_state=2022).fit(feature_matrix)
     print(feature_matrix, type(feature_matrix))
-    hc = AgglomerativeClustering(n_clusters=num_clusters).fit(np.asarray(feature_matrix.todense()))
+
+    if sparse.issparse(feature_matrix):
+        fm_dense = feature_matrix.toarray()
+    else:
+        fm_dense = np.asarray(feature_matrix)
+
+    hc = AgglomerativeClustering(n_clusters=num_clusters).fit(fm_dense)
 
     metrics_distance, embedding_distance = get_scores_embedding(feature_matrix, labels_column)
 

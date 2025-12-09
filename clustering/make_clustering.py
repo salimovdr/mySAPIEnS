@@ -166,7 +166,13 @@ def main(args):
     getNClusters(ann_data, num_clusters)
 
     kmeans = KMeans(n_clusters=num_clusters, random_state=2022).fit(feature_matrix)
-    hc = AgglomerativeClustering(n_clusters=num_clusters).fit(feature_matrix)
+
+    if sparse.issparse(feature_matrix):
+        fm_dense = feature_matrix.toarray()
+    else:
+        fm_dense = np.asarray(feature_matrix)
+
+    hc = AgglomerativeClustering(n_clusters=num_clusters).fit(fm_dense)
 
     metrics_distance, embedding_distance = get_scores_embedding(feature_matrix, labels_column)
 
