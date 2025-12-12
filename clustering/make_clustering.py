@@ -18,6 +18,7 @@ import scanpy as sc
 import json
 import scipy.sparse
 import pickle
+import scipy.sparse as sp
 
 
 def read_array(filename):
@@ -108,27 +109,56 @@ def parse_args():
 
 
 def get_scores(labels_pred, labels_true):
+    labels_true = pd.Series(labels_true)
+
+    valid = labels_true.notna() & (labels_true != "NA")
+
+    lt = labels_true[valid]
+    lp = np.asarray(labels_pred)[valid]
+
     return {
-        'ari': adjusted_rand_score(labels_true, labels_pred),
-        'ami': adjusted_mutual_info_score(labels_true, labels_pred),
-        'homogeneity': homogeneity_score(labels_true, labels_pred)
+        'ari': adjusted_rand_score(lt, lp),
+        'ami': adjusted_mutual_info_score(lt, lp),
+        'homogeneity': homogeneity_score(lt, lp)
     }
+
 
 
 def get_scores_embedding(feature_matrix, labels_true):
+    labels_true = pd.Series(labels_true)
+    # отбрасываем NA и строковые "NA"
+    valid = labels_true.notna() & (labels_true != "NA")
 
-    tsne_embedding = TSNE(n_components=2, random_state=2022).fit_transform(feature_matrix)
+    lt = labels_true[valid].to_numpy()
+
+    # feature_matrix имеет форму (n_cells, n_features)
+    # valid такая же длина, так что можно отфильтровать по строкам
+    fm = feature_matrix[valid]
+
+    tsne_embedding = TSNE(n_components=2, random_state=2022).fit_transform(fm)
     reducer = umap.UMAP()
-    umap_embedding = reducer.fit_transform(feature_matrix)
+    umap_embedding = reducer.fit_transform(fm)
+
+    # На всякий случай: если после фильтра остался один класс, silhouette посчитать нельзя
+    if len(np.unique(lt)) < 2:
+        tsne_score = np.nan
+        umap_score = np.nan
+        pca_score = np.nan
+    else:
+        tsne_score = float(silhouette_score(tsne_embedding, lt))
+        umap_score = float(silhouette_score(umap_embedding, lt))
+        pca_score = float(silhouette_score(fm, lt))
+
     return {
-        'tsne_score': float(silhouette_score(tsne_embedding, labels_true)),
-        'umap_score': float(silhouette_score(umap_embedding, labels_true)),
-        'pca_score': float(silhouette_score(feature_matrix, labels_true))
+        'tsne_score': tsne_score,
+        'umap_score': umap_score,
+        'pca_score': pca_score
     }, {
         'tsne_embedding': tsne_embedding,
-        'pca_embedding': feature_matrix,
+        'pca_embedding': fm,
         'umap_embedding': umap_embedding
     }
+
 
 def save_json(metrics, file):
     with open(file, 'w') as fp:
@@ -142,7 +172,7 @@ def save_embeddings(embeddings, file):
 
 def main(args):
     print(args)
-    labels = pd.read_csv(args.labels_path, sep='\t', header=None)
+    labels = pd.read_csv(args.labels_path, sep='\t', header=None, na_filter=False)
 
     counts, peaks, barcodes = get_peaks(args)
     print(args.input)
@@ -167,7 +197,7 @@ def main(args):
 
     kmeans = KMeans(n_clusters=num_clusters, random_state=2022).fit(feature_matrix)
 
-    if sparse.issparse(feature_matrix):
+    if sp.issparse(feature_matrix):
         fm_dense = feature_matrix.toarray()
     else:
         fm_dense = np.asarray(feature_matrix)

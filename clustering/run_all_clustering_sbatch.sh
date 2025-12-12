@@ -6,7 +6,8 @@ labels=$2
 dataset_folder=$sample_folder/output
 output=$sample_folder/clustering
 export MPLCONFIGDIR=$PWD/.cache
-methods=("threshold" "cicero" "boruta")
+#methods=("threshold" "cicero" "boruta")
+methods=("treshold" "cicero")
 for method in ${methods[@]}
 do
     echo $method
