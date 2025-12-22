@@ -15,3 +15,4 @@ footprinting/
 rename_metrics.sh
 my_preprocessing/make_datasets_copies.sh
 grep_celltypist.sh
+EDA.ipynb
